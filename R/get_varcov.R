@@ -594,14 +594,19 @@ get_varcov.glmmTMB <- function(
   )
 
   if (is.null(vcov)) {
-    vc <- switch(
-      component,
-      conditional = .safe_vcov(x)[["cond"]],
-      zi = ,
-      zero_inflated = .safe_vcov(x)[["zi"]],
-      dispersion = .safe_vcov(x)[["disp"]],
-      stats::vcov(x, full = TRUE)
-    )
+    if (.is_glmmtmb_ordinal(x) && component %in% c("conditional", "all")) {
+      # thresholds (delta method) and estimated fixed effects
+      vc <- .glmmtmb_ordinal_varcov(x)
+    } else {
+      vc <- switch(
+        component,
+        conditional = .safe_vcov(x)[["cond"]],
+        zi = ,
+        zero_inflated = .safe_vcov(x)[["zi"]],
+        dispersion = .safe_vcov(x)[["disp"]],
+        stats::vcov(x, full = TRUE)
+      )
+    }
   } else {
     vc <- .get_varcov_sandwich(
       x,
@@ -1184,9 +1189,9 @@ get_varcov.LORgee <- get_varcov.gee
 
 # helper-functions -----------------------------------------------------
 
-.safe_vcov <- function(x) {
+.safe_vcov <- function(x, ...) {
   vc <- tryCatch(
-    suppressWarnings(stats::vcov(x)),
+    suppressWarnings(stats::vcov(x, ...)),
     error = function(e) e
   )
   if (inherits(vc, "error")) {
